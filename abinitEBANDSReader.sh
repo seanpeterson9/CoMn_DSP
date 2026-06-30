@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 EBANDSFilename=$1
 kptsFilename=$2
 bandsFilename=$3
