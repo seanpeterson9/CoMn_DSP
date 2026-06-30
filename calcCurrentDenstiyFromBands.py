@@ -19,32 +19,39 @@ def deltaGaussHerm(Ek,Ek_prime,f):
 
     gauss = np.exp(-((Ek - Ek_prime)**2)/(2*f*f))
     return (1./(f*np.sqrt(2.)))*gauss*(coeffZero*hermiteZero + coeffTwo*hermiteTwo)
-"""
-E = np.linspace(-.24,.24,101)
-plt.scatter(E,fermi_deriv(E,8.617e-5*100),c='blue')
-plt.scatter(E,fermi_deriv(E,8.617e-5*200),c='green')
-plt.scatter(E,fermi_deriv(E,8.617e-5*300),c='red')
-plt.show()
-plt.scatter(E,deltaGaussHerm(0,E,.02*.24),c='red')
-plt.scatter(E,deltaGaussHerm(0,E,.05*.24),c='blue')
-plt.show()
-#"""
-"""
-E = np.linspace(-1.5,1.5,101)
-dE = E[1] - E[0]
-E2 = np.linspace(-.48,.48,101)
-dE2 = E2[1] - E2[0]
-print(np.sum(dE*deltaGaussHerm(E,0,.03)),dE2*np.sum(deltaGaussHerm(E2,0,.025*.48)))
-plt.scatter(E,deltaGaussHerm(E,0,.03),c = 'blue')
-plt.scatter(E2,deltaGaussHerm(E2,0,.025*.48),c = 'red')
-plt.show()
-#"""
+
+def vk(interp_func,kx,ky,kz,dk = 1e-3):
+    vx = np.zeros(kx.shape)
+    vy = np.zeros(kx.shape)
+    vz = np.zeros(kx.shape)
+    
+    mask_x1 = kx < dk
+    mask_x2 = kx > .5 - dk
+    mask_y1 = ky < dk
+    mask_y2 = ky > .5 - dk
+    mask_z1 = kz < dk
+    mask_z2 = kz > .5 - dk
+    
+    vx = (interp_func(kx+dk,ky,kz) - interp_func(kx-dk,ky,kz)) / (2*dk)
+    vy = (interp_func(kx,ky+dk,kz) - interp_func(kx,ky-dk,kz)) / (2*dk)
+    vz = (interp_func(kx,ky,kz+dk) - interp_func(kx,ky,kz-dk)) / (2*dk)
+    
+    vx[mask_x1] = (interp_func(kx[mask_x1]+dk,ky[mask_x1],kz[mask_x1]) - interp_func(kx[mask_x1],ky[mask_x1],kz[mask_x1])) / (dk)
+    vx[mask_x2] = (interp_func(kx[mask_x2],ky[mask_x2],kz[mask_x2]) - interp_func(kx[mask_x2]-dk,ky[mask_x2],kz[mask_x2])) / (dk)
+    
+    vx[mask_y1] = (interp_func(kx[mask_y1],ky[mask_y1]+dk,kz[mask_y1]) - interp_func(kx[mask_y1],ky[mask_y1],kz[mask_y1])) / (dk)
+    vx[mask_y2] = (interp_func(kx[mask_y2],ky[mask_y2],kz[mask_y2]) - interp_func(kx[mask_y2],ky[mask_y2]-dk,kz[mask_y2])) / (dk)
+    
+    vx[mask_z1] = (interp_func(kx[mask_z1],ky[mask_z1],kz[mask_z1]+dk) - interp_func(kx[mask_z1],ky[mask_z1],kz[mask_z1])) / (dk)
+    vx[mask_z2] = (interp_func(kx[mask_z2],ky[mask_z2],kz[mask_z2]) - interp_func(kx[mask_z2],ky[mask_z2],kz[mask_z2]-dk)) / (dk)
+    return vx, vy, vz
+    
 
 def genInterpFuncs(kx,ky,kz,E,nbands,a,b,c,E_cutoff,N_k):
     Kx = np.concatenate((kx,ky,-kx,-ky,kx,ky,-kx,-ky,kx,ky,-kx,-ky,kx,ky,-kx,-ky))
     Ky = np.concatenate((ky,kx,ky,kx,-ky,-kx,-ky,-kx,ky,kx,ky,kx,-ky,-kx,-ky,-kx))
     Kz = np.concatenate((kz,kz,kz,kz,kz,kz,kz,kz,-kz,-kz,-kz,-kz,-kz,-kz,-kz,-kz))
-    mask = (Kx > -.05) & (Ky > -.05) & (Kz > -.05)
+    mask = (Kx >= 0) & (Kx <= .5) & (Ky >= 0) & (Ky <= .5) & (Kz >= 0) & (Kz <= .5) 
     Kx = Kx[mask]
     Ky = Ky[mask]
     Kz = Kz[mask]
@@ -56,115 +63,14 @@ def genInterpFuncs(kx,ky,kz,E,nbands,a,b,c,E_cutoff,N_k):
     sort = np.argsort(Kx)
     bandID = []
     interp_band_list = []
+    
     for i in range(0,2*nbands):
         if len(E_k[i][np.abs(E_k[i]) < E_cutoff]) > 1:
             print(i,len(E_k[i][np.abs(E_k[i]) < E_cutoff]))
             bandID.append(i)
             interp_band_list.append(LinearNDInterpolator((Kx[sort],Ky[sort],Kz[sort]),E_k[i][sort]))
     
-    x = np.linspace(0,.5,N_k)
-    y = np.linspace(0,.5,N_k)
-    z = np.linspace(0,.5,N_k)
-    dx = (x[1] - x[0])/a
-    dy = (y[1] - y[0])/b
-    dz = (z[1] - z[0])/c
-    X,Y,Z = np.meshgrid(x,y,z)
-    
-    Vx = []
-    Vy = []
-    Vz = []
-
-    interp_vx_list = []
-    interp_vy_list = []
-    interp_vz_list = []
-    
-    for i in range(0,len(interp_band_list)):
-        print(i)
-        vy,vx,vz = np.gradient(interp_band_list[i](X,Y,Z))
-        Vx.append(vx/dx)
-        Vy.append(vy/dy)
-        Vz.append(vz/dz)
-        interp_vx_list.append(LinearNDInterpolator((X.flatten(),Y.flatten(),Z.flatten()),Vx[i].flatten()))
-        interp_vy_list.append(LinearNDInterpolator((X.flatten(),Y.flatten(),Z.flatten()),Vy[i].flatten()))
-        interp_vz_list.append(LinearNDInterpolator((X.flatten(),Y.flatten(),Z.flatten()),Vz[i].flatten()))
-    
-    #return interp_band_list,bandID
-    return interp_band_list,interp_vx_list,interp_vy_list,interp_vz_list,bandID
-
-def cosFitTest_3D(x,y,z,fitParams,n):
-    ret = np.zeros(x.shape)
-    idx = 0
-    for i in range(0,n):
-        for j in range(0,i+1):
-            for k in range(0,n):
-                ret = ret + fitParams[idx]*(np.cos(2*i*np.pi*x)*np.cos(2*j*np.pi*y) + np.cos(2*j*np.pi*x)*np.cos(2*i*np.pi*y))*np.cos(2*k*np.pi*z)
-                idx = int(idx + 1)
-    return ret
-
-def cosFitTest_3D_grad(x,y,z,fitParams,n):
-    vx = np.zeros(x.shape)
-    vy = np.zeros(x.shape)
-    vz = np.zeros(x.shape)
-    idx = 0
-    for i in range(0,n):
-        for j in range(0,i+1):
-            for k in range(0,n):
-                #if i > 0:
-                vx = vx - 2*np.pi*fitParams[idx]*(i*np.sin(2*i*np.pi*x)*np.cos(2*j*np.pi*y) + j*np.sin(2*j*np.pi*x)*np.cos(2*i*np.pi*y))*np.cos(2*k*np.pi*z)
-                #if j > 0:
-                vy = vy - 2*np.pi*fitParams[idx]*(j*np.cos(2*i*np.pi*x)*np.sin(2*j*np.pi*y) + i*np.cos(2*j*np.pi*x)*np.sin(2*i*np.pi*y))*np.cos(2*k*np.pi*z)
-                #if k > 0:
-                vz = vz - 2*k*np.pi*fitParams[idx]*(np.cos(2*i*np.pi*x)*np.cos(2*j*np.pi*y) + np.cos(2*j*np.pi*x)*np.cos(2*i*np.pi*y))*np.sin(2*k*np.pi*z)
-                idx = int(idx + 1)
-    return vx, vy, vz
-
-def cosFitTestConstrained_3D(fitParams,constStr,bandStr,gradStr,xyz,E):
-    kx,ky,kz,kx2,ky2,kz2 = xyz
-    E,E2 = E
-    #constStr = 1+4./(1.+np.exp(-.02*constStrParam))
-    #gradStr = 2./(1.+np.exp(-.02*gradStrParam))
-
-    dkx = np.gradient(kx)
-    dky = np.gradient(ky)
-    dkz = np.gradient(kz)
-    dk = np.sqrt(dkx**2 + dky**2 + dkz**2)
-    dE = np.gradient(E)
-    
-    ux = dkx/dk
-    uy = dky/dk
-    uz = dkz/dk
-    
-    vx,vy,vz = cosFitTest_3D_grad(kx,ky,kz,fitParams,5)
-    #n_fit = 5 has 75 fit parameters I believe
-    """
-    ret1 = np.sign(E - cosFitTest_3D(kx,ky,kz,fitParams,5))*np.abs(E - cosFitTest_3D(kx,ky,kz,fitParams,5))**(2./4.)
-    ret2 = np.sign(dE/dk - vx*ux - vy*uy - vz*uz)*np.abs(dE/dk - vx*ux - vy*uy - vz*uz)**(2./4.)
-    ret1 = ret1 + constStr*deltaGaussHerm(0,E,.08)*np.sign(E - cosFitTest_3D(kx,ky,kz,fitParams,5))*np.abs(E - cosFitTest_3D(kx,ky,kz,fitParams,5))**(2./4.)
-    ret2 = ret2 + constStr*deltaGaussHerm(0,E,.08)*np.sign(dE/dk - vx*ux - vy*uy - vz*uz)*np.abs(dE/dk - vx*ux - vy*uy - vz*uz)**(2./4.)
-    ret3 = np.sign(E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))*np.abs(E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))**(2./4.)
-    ret3 = ret3 + constStr*deltaGaussHerm(0,E2,.08)*np.sign(E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))*np.abs(E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))**(2./4.)
-    """
-    ret1 = (E - cosFitTest_3D(kx,ky,kz,fitParams,5))
-    ret2 = (dE/dk - vx*ux - vy*uy - vz*uz)
-    #deltaGaussHerm was set to 0.08 for best results so far
-    #ret1 = ret1 + constStr*deltaGaussHerm(0,E,.12)*(E - cosFitTest_3D(kx,ky,kz,fitParams,5))
-    ret1 = ret1 + constStr*fermi_deriv(E,8.617e-5*300)*(E - cosFitTest_3D(kx,ky,kz,fitParams,5))
-    #ret2 = ret2 + constStr*deltaGaussHerm(0,E,.12)*(dE/dk - vx*ux - vy*uy - vz*uz)
-    ret2 = ret2 + constStr*fermi_deriv(E,8.617e-5*300)*(dE/dk - vx*ux - vy*uy - vz*uz)
-    ret3 = (E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))
-    #ret3 = ret3 + constStr*deltaGaussHerm(0,E2,.12)*(E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))
-    ret3 = ret3 + constStr*fermi_deriv(E2,8.617e-5*300)*(E2 - cosFitTest_3D(kx2,ky2,kz2,fitParams,5))
-    #return ret1 + np.sign(ret1)*np.abs(ret2)
-    ret = []
-    for i in range(0,len(kx)):
-        #ret.append((ret1[i],gradStr*ret2[i]))
-        ret.append(bandStr*ret1[i]*np.sqrt((436./896.)*(len(kx2)/len(kx))))
-        ret.append(gradStr*ret2[i]*np.sqrt((436./896.)*(len(kx2)/len(kx))))
-    for i in range(0,len(kx2)):
-        ret.append(ret3[i])
-    #return np.abs(ret1) + gradStr*np.abs(ret2)
-    #print(np.sum(ret))
-    return ret
+    return interp_band_list,bandID
 
 def readBandFile(EBANDSFilename,EBANDSFilename2,nbands):
     os.system('./abinitEBANDSReader.sh ' + EBANDSFilename + ' kpts_tmp bands_tmp')
@@ -220,36 +126,7 @@ def readBandFile(EBANDSFilename,EBANDSFilename2,nbands):
     E2 = np.array(E2)
     return kx,ky,kz,E,kx2,ky2,kz2,E2
 
-def genFitParams(kx,ky,kz,E,kx2,ky2,kz2,E2,nbands,E_cutoff):
-    print(len(kx),len(kx2))
-    bandID = []
-    fitParamsList = []
-    strFitParamsList = []
-    for i in range(0,2*nbands):
-        if ((len(E[i][np.abs(E[i]) < E_cutoff]) > 0) or (len(E2[i][np.abs(E2[i]) < E_cutoff]) > 0)):# and (i == 19):
-            """
-            E_c = E_cutoff
-            mask = np.abs(E[i]) < E_c
-            while len(E[i][mask]) < 75:
-                E_c = 1.2 * E_c
-                mask = np.abs(E[i]) < E_c
-            """
-            #sort = np.argsort(np.abs(E[i]))
-            print(i,len(E[i][np.abs(E[i]) < E_cutoff]),len(E2[i][np.abs(E2[i]) < E_cutoff]))
-            bandID.append(i)
-            #poptInit = leastsq(cosFitTestConstrained_3D,x0 = np.ones(75),args=(0,(kx,ky,kz),E[i]))[0]
-            #popt = leastsq(cosFitTestConstrainedWrapper_3D,x0 = [-30,0],args=((kx,ky,kz,kx2,ky2,kz2),(E[i],E2[i])),epsfcn=.05,maxfev=20)[0]
-            #strFitParamsList.append(popt)
-            #popt = leastsq(cosFitTestConstrained_3D,x0 = np.ones(75),args=(strFitParamsList[-1][0],strFitParamsList[-1][1],(kx,ky,kz,kx2,ky2,kz2),(E[i],E2[i])))[0]
-            popt = leastsq(cosFitTestConstrained_3D,x0 = np.ones(75),args=(10.,1.5,1.5,(kx,ky,kz,kx2,ky2,kz2),(E[i],E2[i])))[0]
-            #popt = leastsq(cosFitTestConstrained_3D,x0 = np.ones(75),args=(7.9,.396,(kx,ky,kz),E[i]))[0]
-            #popt,pcurve = curve_fit(cosFitTestWrapper_3D,(kx[sort],ky[sort],kz[sort]),E[i][sort])#,p0 = guess)
-            fitParamsList.append(popt)
-    fitParamsList = np.array(fitParamsList)
-    return fitParamsList,bandID
-
-def genEquipotentialFsolve(interp_band_func,interp_vx_func,interp_vy_func,interp_vz_func,E,dk,dkz_guess):
-    n_fit = 5
+def genEquipotentialFsolve(interp_band_func,E,dk,dkz_guess):
     
     kx = np.arange(0.,0.5+dk,dk)
     ky = np.arange(0.,0.5+dk,dk)
@@ -323,14 +200,10 @@ def genEquipotentialFsolve(interp_band_func,interp_vx_func,interp_vy_func,interp
     for i in range(0,len(kx)):
         kz_midpoint[i] = .5/(1+np.exp(-.01*fsolve(lambda k: (E-interp_band_func(kx_midpoint[i],ky_midpoint[i],.5/(1+np.exp(-.01*k))))**2,x0=[100*np.log(2*kz[i]/(1-2*kz[i]))],factor=0.1)))
 
-    vx = interp_vx_func(kx,ky,kz)
-    vy = interp_vy_func(kx,ky,kz)
-    vz = interp_vz_func(kx,ky,kz)
+    vx,vy,vz = vk(interp_band_func,kx,ky,kz)
     dSk = dk*dk*np.sqrt(1. + (vx/vz)**2 + (vy/vz)**2)
     
-    vx = interp_vx_func(kx_midpoint,ky_midpoint,kz_midpoint)
-    vy = interp_vy_func(kx_midpoint,ky_midpoint,kz_midpoint)
-    vz = interp_vz_func(kx_midpoint,ky_midpoint,kz_midpoint)
+    vx,vy,vz = vk(interp_band_func,kx_midpoint,ky_midpoint,kz_midpoint)
     v = np.sqrt(vx**2 + vy**2 + vz**2)
     
     mask = (kz_midpoint >= 0) & (kz_midpoint <= .5) & (kx_midpoint <= ky_midpoint) & (~np.isnan(v)) & (np.abs(v) > 1e-3) & ((E-interp_band_func(kx_midpoint,ky_midpoint,kz_midpoint))**2 < 1e-3) & (dSk < 10*dk*dk)
@@ -345,14 +218,8 @@ def genEquipotentialFsolve(interp_band_func,interp_vx_func,interp_vy_func,interp
     dSk_symm = np.concatenate((dSk[mask],dSk[mask]))
     
     return kx_midpoint_symm,ky_midpoint_symm,kz_midpoint_symm,dSk_symm,vz_symm,v_symm
-"""
-kx,ky,kz,E = readBandFile('abinitOutputFiles/Co_FM_bandStruct/bct_a_291_c_249o_DS2_EBANDS.agr',20)
-print('interpolating bands')
-fitParamsList,bandID = genFitParams(kx,ky,kz,E,20,.6)
-genEquipotentialFsolve(fitParamsList[0],0,.02,.0625)
-#"""
 
-def genEquipotentialGrid(interp_band_func_list,interp_vx_list,interp_vy_list,interp_vz_list,E_cutoff,N_E,N_theta,N_phi):
+def genEquipotentialGrid(interp_band_func_list,E_cutoff,N_E,N_theta,N_phi):
     E_grid = np.linspace(-E_cutoff,E_cutoff,N_E)
 
     kx = []
@@ -376,7 +243,7 @@ def genEquipotentialGrid(interp_band_func_list,interp_vx_list,interp_vy_list,int
             dS[i].append([])
             vz[i].append([])
             v[i].append([])
-            kx_tmp,ky_tmp,kz_tmp,dS_tmp,vz_tmp,v_tmp = genEquipotentialFsolve(interp_band_func_list[i],interp_vx_list[i],interp_vy_list[i],interp_vz_list[i],E_grid[j],.015625,.125)
+            kx_tmp,ky_tmp,kz_tmp,dS_tmp,vz_tmp,v_tmp = genEquipotentialFsolve(interp_band_func_list[i],E_grid[j],.015625,.125)
             print(i,E_grid[j],len(kx_tmp))
             kx[i][j] = kx_tmp
             ky[i][j] = ky_tmp
@@ -386,9 +253,6 @@ def genEquipotentialGrid(interp_band_func_list,interp_vx_list,interp_vy_list,int
             v[i][j] = v_tmp
             
     return E_grid,dS,vz,v
-
-#def genTetrahedronDOS(interp_band_list,interp_vx_list,interp_vy_list,interp_vz_list,bandID,nbands):
-    
 
 def genDOS(bandID,nbands,dS_k,v_k,E_k,E_cut,N_E):
     dE = np.abs(E_k[1] - E_k[0])
@@ -786,22 +650,6 @@ def integrateBands(E_k,dS_k,vz_k,v_k,bandID,nbands,T):
     dE = np.abs(E_k[1] - E_k[0])
     
     tau = []
-    """
-    print('calculating better electron lifetimes')
-    for i in range(0,len(bandID)):
-        tau.append([])
-        for n in range(0,len(E_k)):
-            tau[i].append([])
-            tau_inv_tmp = 0.
-            for j in range(0,len(bandID)):
-                if ((bandID[i] < nbands) and (bandID[j] < nbands)) or ((bandID[i] >= nbands) and (bandID[j] >= nbands)):
-                    for m in range(0,len(E_k)):
-                        tau_inv_tmp = tau_inv_tmp + dE*np.sum(dS_k[j][m][v_k[j][m] != 0.]*deltaGaussHerm(E_k[m],E_k[n],.02*E_k[-1])/v_k[j][m][v_k[j][m] != 0.])
-            if tau_inv_tmp > 1e-8:
-                tau[i][n] = np.ones(len(dS_k[i][n]))/tau_inv_tmp
-            else:
-                tau[i][n] = np.zeros(len(dS_k[i][n]))
-    """
 
     print('calculating better conductivity')
     for i in range(0,len(bandID)):
@@ -809,7 +657,6 @@ def integrateBands(E_k,dS_k,vz_k,v_k,bandID,nbands,T):
         #sigma = 0.
         for j in range(0,len(E_k)):
             NF = NF + dE*np.sum(dS_k[i][j][v_k[i][j] != 0.]*deltaGaussHerm(E_k[j],0.,.05*E_k[-1])/v_k[i][j][v_k[i][j] != 0.])
-            #sigma = sigma + dE*np.sum(dS_k[i][j][v_k[i][j] != 0.]*tau[i][j][v_k[i][j] != 0.]*fermi_deriv(E_k[j],T)*(vz_k[i][j][v_k[i][j] != 0.])**2/v_k[i][j][v_k[i][j] != 0.])
             #print(i,j,NF,sigma)
         if bandID[i] < nbands:
             NF_up = NF_up + NF
@@ -906,50 +753,10 @@ def main_plotBands(EBANDSFilename,EBANDSFilename2,nbands,a,c,E_cutoff,N_theta,N_
         En.append(np.concatenate((E[i],E2[i])))
     En = np.array(En)
     print('interpolating bands')
-    interp_band_list,interp_vx_list,interp_vy_list,interp_vz_list,bandID = genInterpFuncs(Kx,Ky,Kz,En,nbands,a,a,c,E_cutoff,int(N_k))
+    interp_band_list,bandID = genInterpFuncs(Kx,Ky,Kz,En,nbands,a,a,c,E_cutoff,int(N_k))
     
-    #fitParamsList,bandID = genFitParams(kx,ky,kz,E,kx2,ky2,kz2,E2,nbands,E_cutoff)
-    """
-    if checkFit:
-        residuals = np.zeros(len(bandID))
-        N_abinit = np.linspace(0,1,len(kx))
-        for i in range(0,len(bandID)):
-            mask = np.abs(E[bandID[i]]) < E_cutoff
-            residuals[i] = np.sum(np.abs(cosFitTest_3D(kx[mask],ky[mask],kz[mask],fitParamsList[i],n_fit)-E[bandID[i]][mask]))/len(kx[mask])
-            print(bandID[i],residuals[i])
-            if bandID[i] < nbands:
-                plt.plot(N_abinit,cosFitTest_3D(kx,ky,kz,fitParamsList[i],n_fit),c = 'blue')
-                plt.scatter(N_abinit,E[bandID[i]],c = 'blue')
-            else:
-                plt.plot(N_abinit,cosFitTest_3D(kx,ky,kz,fitParamsList[i],n_fit),c = 'red')
-                plt.scatter(N_abinit,E[bandID[i]],c = 'red')
-            plt.plot(N_abinit,np.zeros(len(N_abinit)),c = 'k',ls = ':')
-            plt.show()
-        print(np.sum(residuals)/len(bandID))
-
-    bandpath_x,bandpath_y,bandpath_z,N,labels = genBands(a,c,N_k)
-    
-    f, (a1,a2) = plt.subplots(1,2,gridspec_kw = {'width_ratios': [3,1]})
-    a1.set_xticks(labels[0],labels = labels[1])
-    a1.set_yticks([-.5,-.4,-.3,-.2,-.1,0,.1,.2,.3,.4,.5],labels = ['-0.5','-0.4','-0.3','-0.2','-0.1','0','0.1','0.2','0.3','0.4','0.5'])
-    #a1.set_yticks([-1.25,-1,-.75,-.5,.25,0,.25,.5,.75,1,1.25],labels = ['-1.25','-1','-0.75','-0.5','-0.25','0','0.25','0.5','0.75','1','1.25'])
-    a1.plot(N,np.zeros(len(N)),ls = '--',c = 'black')
-    a1.set_ylim([-.5,.5])
-    #a1.set_ylim([-1.4,1.4])
-    a1.set_xlim(N[0],N[-1])
-    for i in range(0,len(bandID)):
-        if bandID[i] < nbands:
-            #a1.plot(N,cosFit_3D_wrapper(bandpath_x,bandpath_y,bandpath_z,fitParamsList[i]),c = 'blue')
-            a1.plot(N,cosFitTest_3D(bandpath_x,bandpath_y,bandpath_z,fitParamsList[i],n_fit),c = 'blue')
-        else:
-            #a1.plot(N,cosFit_3D_wrapper(bandpath_x,bandpath_y,bandpath_z,fitParamsList[i]),c = 'red')
-            a1.plot(N,cosFitTest_3D(bandpath_x,bandpath_y,bandpath_z,fitParamsList[i],n_fit),c = 'red')
-    """
     print('generating integration grid')
-    #kx,ky,kz,dkx,dky,dkz,E_k,vz = genEquipotentialAdaptiveCartesianGrid(fitParamsList,E_cutoff,NUM)
-    E_k,dS_k,vz_k,v_k = genEquipotentialGrid(interp_band_list,interp_vx_list,interp_vy_list,interp_vz_list,E_cutoff,N_E,N_theta,N_phi)
-    #print('calculating DOS')
-    #E,N_up,N_down = genDOSAdaptiveCartesian(bandID,nbands,dkx,dky,dkz,E_k,E_cutoff,2*N_E)
+    E_k,dS_k,vz_k,v_k = genEquipotentialGrid(interp_band_list,E_cutoff,N_E,N_theta,N_phi)
     E,N_up,N_down = genDOS(bandID,nbands,dS_k,v_k,E_k,E_cutoff,2*N_E)
     
     print('DOS Results: ')
@@ -958,7 +765,7 @@ def main_plotBands(EBANDSFilename,EBANDSFilename2,nbands,a,c,E_cutoff,N_theta,N_
         print(E[i],N_up[i],N_down[i])
     
 #main_plotBands('abinitOutputFiles/Co_FM_bandStruct/bct_a_291_c_249o_DS2_EBANDS.agr','abinitOutputFiles/Co_FM_bandStruct/bct_a_291_c_249o_DS1_EBANDS.agr',20,2.91,2.49,.24,15,15,101,N_k=50,checkFit=False)
-#main_plotBands('abinitOutputFiles/Co_FM_bandStruct2/bct_a_276_c_280o_DS2_EBANDS.agr','abinitOutputFiles/Co_FM_bandStruct2/bct_a_276_c_280o_DS1_EBANDS.agr',20,2.76,2.80,.24,15,15,101,N_k=50,checkFit=False)
+main_plotBands('abinitOutputFiles/Co_FM_bandStruct2/bct_a_276_c_280o_DS2_EBANDS.agr','abinitOutputFiles/Co_FM_bandStruct2/bct_a_276_c_280o_DS1_EBANDS.agr',20,2.76,2.80,.24,15,15,101,N_k=50,checkFit=False)
 
 #main_plotBands('abinitOutputFiles/Co75Mn25I_symm_FM_bandStruct2/bct_a_292_c_250o_DS2_EBANDS.agr','abinitOutputFiles/Co75Mn25I_symm_FM_bandStruct2/bct_a_292_c_250o_DS1_EBANDS.agr',160,2.92,2.50,.24,15,15,101,N_k=50,checkFit=False)
 #main_plotBands('abinitOutputFiles/Co75Mn25I_symm_FM_bandStruct2/bct_a_280_c_267o_DS2_EBANDS.agr','abinitOutputFiles/Co75Mn25I_symm_FM_bandStruct2/bct_a_280_c_267o_DS1_EBANDS.agr',160,2.80,2.67,.24,15,15,101,N_k=50,checkFit=False)
@@ -974,10 +781,8 @@ def DSP(EBANDSFilename,EBANDSFilename2,nbands,a,c,E_cutoff,T,N_theta,N_phi,N_E,N
         En.append(np.concatenate((E[i],E2[i])))
     En = np.array(En)
     print('interpolating bands')
-    interp_band_list,interp_vx_list,interp_vy_list,interp_vz_list,bandID = genInterpFuncs(Kx,Ky,Kz,En,nbands,a,a,c,E_cutoff,int(N_k))
-    #fitParamsList,bandID = genFitParams(kx,ky,kz,E,kx2,ky2,kz2,E2,nbands,E_cutoff)
-    #E_k,dS_k,vz_k,v_k = genEquipotentialGrid(fitParamsList,E_cutoff,N_E,N_theta,N_phi)
-    E_k,dS_k,vz_k,v_k = genEquipotentialGrid(interp_band_list,interp_vx_list,interp_vy_list,interp_vz_list,E_cutoff,N_E,N_theta,N_phi)
+    interp_band_list,bandID = genInterpFuncs(Kx,Ky,Kz,En,nbands,a,a,c,E_cutoff,int(N_k))
+    E_k,dS_k,vz_k,v_k = genEquipotentialGrid(interp_band_list,E_cutoff,N_E,N_theta,N_phi)
     NF_up,NF_down,PN,sigmaz_up0,sigmaz_down0,PNv20,sigmaz_up1,sigmaz_down1,PNv21,sigmaz_up2,sigmaz_down2,PNv22,sigmaz_up5,sigmaz_down5,PNv25,sigmaz_up7,sigmaz_down7,PNv27,sigmaz_up10,sigmaz_down10,PNv210,sigmaz_up15,sigmaz_down15,PNv215,sigmaz_up20,sigmaz_down20,PNv220,sigmaz_up30,sigmaz_down30,PNv230,sigmaz_up40,sigmaz_down40,PNv240,sigmaz_up50,sigmaz_down50,PNv250 = integrateBands(E_k,dS_k,vz_k,v_k,bandID,nbands,T)
     return [NF_up, NF_down, PN, sigmaz_up0, sigmaz_down0, PNv20,sigmaz_up1,sigmaz_down1,PNv21,sigmaz_up2,sigmaz_down2,PNv22,sigmaz_up5,sigmaz_down5,PNv25,sigmaz_up7,sigmaz_down7,PNv27,sigmaz_up10,sigmaz_down10,PNv210,sigmaz_up15,sigmaz_down15,PNv215,sigmaz_up20,sigmaz_down20,PNv220,sigmaz_up30,sigmaz_down30,PNv230,sigmaz_up40,sigmaz_down40,PNv240,sigmaz_up50,sigmaz_down50,PNv250]
 
@@ -1114,4 +919,4 @@ def main(EBANDSDirectory,T,nbands,N_theta,N_phi,N_E,E_cut):
         #print(EBANDSFilenameList[i], NF_up[i], NF_down[i], PN[i], sigmaz_up[i], sigmaz_down[i], PNv2[i])
     
 #main('abinitOutputFiles/Co_FM_bandStruct2/',8.617e-5*100,20,15,15,101,0.1)
-main('abinitOutputFiles/Co75Mn25I_symm_FM_noCon_bandStruct2/',8.617e-5*100,160,15,15,101,0.1)
+#main('abinitOutputFiles/Co75Mn25I_symm_FM_noCon_bandStruct2/',8.617e-5*100,160,15,15,101,0.1)
