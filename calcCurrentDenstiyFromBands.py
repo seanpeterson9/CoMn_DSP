@@ -8,6 +8,8 @@ import numpy as np
 import os
 import csv
 
+from mpi4py import MPI
+
 def fermi_deriv(E,T):
     return 1/(2.*np.cosh(E/(2.*T)))**2.
 
@@ -797,55 +799,64 @@ def main(EBANDSDirectory,T,nbands,N_theta,N_phi,N_E,E_cut):
     sigmaz_down50 = np.zeros(len(EBANDSFilenameList))
     PNv250 = np.zeros(len(EBANDSFilenameList))
     
-    for i in range(0,len(EBANDSFilenameList)):
-        results = DSP(EBANDSFilenameList[i],E_cut,T,N_theta,N_phi,N_E)
-        
-        NF_up[i] = results[0]
-        NF_down[i] = results[1]
-        PN[i] = results[2]
-        sigmaz_up0[i] = results[3]
-        sigmaz_down0[i] = results[4]
-        PNv20[i] = results[5]
-        sigmaz_up1[i] = results[6]
-        sigmaz_down1[i] = results[7]
-        PNv21[i] = results[8]
-        sigmaz_up2[i] = results[9]
-        sigmaz_down2[i] = results[10]
-        PNv22[i] = results[11]
-        sigmaz_up5[i] = results[12]
-        sigmaz_down5[i] = results[13]
-        PNv25[i] = results[14]
-        sigmaz_up7[i] = results[15]
-        sigmaz_down7[i] = results[16]
-        PNv27[i] = results[17]
-        sigmaz_up10[i] = results[18]
-        sigmaz_down10[i] = results[19]
-        PNv210[i] = results[20]
-        sigmaz_up15[i] = results[21]
-        sigmaz_down15[i] = results[22]
-        PNv215[i] = results[23]
-        sigmaz_up20[i] = results[24]
-        sigmaz_down20[i] = results[25]
-        PNv220[i] = results[26]
-        sigmaz_up30[i] = results[27]
-        sigmaz_down30[i] = results[28]
-        PNv230[i] = results[29]
-        sigmaz_up40[i] = results[30]
-        sigmaz_down40[i] = results[31]
-        PNv240[i] = results[32]
-        sigmaz_up50[i] = results[33]
-        sigmaz_down50[i] = results[34]
-        PNv250[i] = results[35]
-        a[i] = results[36]
-        c[i] = results[37]
-        print(EBANDSFilenameList[i], a[i], c[i], NF_up[i], NF_down[i], PN[i], sigmaz_up0[i], sigmaz_down0[i], PNv20[i], sigmaz_up1[i], sigmaz_down1[i], PNv21[i], sigmaz_up2[i], sigmaz_down2[i], PNv22[i], sigmaz_up5[i], sigmaz_down5[i], PNv25[i], sigmaz_up7[i], sigmaz_down7[i], PNv27[i], sigmaz_up10[i], sigmaz_down10[i], PNv210[i], sigmaz_up15[i], sigmaz_down15[i], PNv215[i], sigmaz_up20[i], sigmaz_down20[i], PNv220[i], sigmaz_up30[i], sigmaz_down30[i], PNv230[i], sigmaz_up40[i], sigmaz_down40[i], PNv240[i], sigmaz_up50[i], sigmaz_down50[i], PNv250[i])
-        f = open('DSP_Co_auto_01.dat','a')
-        f.write(str(EBANDSFilenameList[i]) + '\t' + str(a[i]) + '\t' +  str(c[i]) + '\t' + str(NF_up[i]) + '\t' + str(NF_down[i]) + '\t' +  str(PN[i]) + '\t' + str(sigmaz_up0[i]) + '\t' + str(sigmaz_down0[i]) + '\t' + str(PNv20[i]) + '\t' + str(sigmaz_up1[i]) + '\t' + str(sigmaz_down1[i]) + '\t' + str(PNv21[i]) + '\t' + str(sigmaz_up2[i]) + '\t' + str(sigmaz_down2[i]) + '\t' + str(PNv22[i]) + '\t' + str(sigmaz_up5[i]) + '\t' + str(sigmaz_down5[i]) + '\t' + str(PNv25[i]) + '\t' + str(sigmaz_up7[i]) + '\t' + str(sigmaz_down7[i]) + '\t' + str(PNv27[i]) + '\t' + str(sigmaz_up10[i]) + '\t' + str(sigmaz_down10[i]) + '\t' + str(PNv210[i]) + '\t' + str(sigmaz_up15[i]) + '\t' + str(sigmaz_down15[i]) + '\t' + str(PNv215[i]) + '\t' + str(sigmaz_up20[i]) + '\t' + str(sigmaz_down20[i]) + '\t' + str(PNv220[i]) + '\t' + str(sigmaz_up30[i]) + '\t' + str(sigmaz_down30[i]) + '\t' + str(PNv230[i]) + '\t' + str(sigmaz_up40[i]) + '\t' + str(sigmaz_down40[i]) + '\t' + str(PNv240[i]) + '\t' + str(sigmaz_up50[i]) + '\t' + str(sigmaz_down50[i]) + '\t' + str(PNv250[i]) + '\n')
-        f.close()
-        
-    print('final results')
-    for i in range(0,len(EBANDSFilenameList)):
-        print(EBANDSFilenameList[i], a[i], c[i], NF_up[i], NF_down[i], PN[i], sigmaz_up0[i], sigmaz_down0[i], PNv20[i], sigmaz_up1[i], sigmaz_down1[i], PNv21[i], sigmaz_up2[i], sigmaz_down2[i], PNv22[i], sigmaz_up5[i], sigmaz_down5[i], PNv25[i], sigmaz_up7[i], sigmaz_down7[i], PNv27[i], sigmaz_up10[i], sigmaz_down10[i], PNv210[i], sigmaz_up15[i], sigmaz_down15[i], PNv215[i], sigmaz_up20[i], sigmaz_down20[i], PNv220[i], sigmaz_up30[i], sigmaz_down30[i], PNv230[i], sigmaz_up40[i], sigmaz_down40[i], PNv240[i], sigmaz_up50[i], sigmaz_down50[i], PNv250[i])
+    world_comm = MPI.COMM_WORLD
+    world_size = world_comm.Get_size()
+    my_rank = world_comm.Get_rank()
     
+    #world_size = 8
+    #my_rank = np.array([0,1,2,3,4,5,6,7])
+    #print(len(EBANDSFilenameList))
+    nIters = int(len(EBANDSFilenameList)/world_size)
+    leftover = len(EBANDSFilenameList) - nIters*world_size
+    #print(nIters)
+    for j in range(0,nIters + 1):
+        #I = np.zeros(len(my_rank))
+        if j != nIters or my_rank < leftover:
+            i = world_size*j + my_rank
+            
+            results = DSP(EBANDSFilenameList[i],E_cut,T,N_theta,N_phi,N_E)
+            
+            NF_up[i] = results[0]
+            NF_down[i] = results[1]
+            PN[i] = results[2]
+            sigmaz_up0[i] = results[3]
+            sigmaz_down0[i] = results[4]
+            PNv20[i] = results[5]
+            sigmaz_up1[i] = results[6]
+            sigmaz_down1[i] = results[7]
+            PNv21[i] = results[8]
+            sigmaz_up2[i] = results[9]
+            sigmaz_down2[i] = results[10]
+            PNv22[i] = results[11]
+            sigmaz_up5[i] = results[12]
+            sigmaz_down5[i] = results[13]
+            PNv25[i] = results[14]
+            sigmaz_up7[i] = results[15]
+            sigmaz_down7[i] = results[16]
+            PNv27[i] = results[17]
+            sigmaz_up10[i] = results[18]
+            sigmaz_down10[i] = results[19]
+            PNv210[i] = results[20]
+            sigmaz_up15[i] = results[21]
+            sigmaz_down15[i] = results[22]
+            PNv215[i] = results[23]
+            sigmaz_up20[i] = results[24]
+            sigmaz_down20[i] = results[25]
+            PNv220[i] = results[26]
+            sigmaz_up30[i] = results[27]
+            sigmaz_down30[i] = results[28]
+            PNv230[i] = results[29]
+            sigmaz_up40[i] = results[30]
+            sigmaz_down40[i] = results[31]
+            PNv240[i] = results[32]
+            sigmaz_up50[i] = results[33]
+            sigmaz_down50[i] = results[34]
+            PNv250[i] = results[35]
+            a[i] = results[36]
+            c[i] = results[37]
+            print(EBANDSFilenameList[i], a[i], c[i], NF_up[i], NF_down[i], PN[i], sigmaz_up0[i], sigmaz_down0[i], PNv20[i], sigmaz_up1[i], sigmaz_down1[i], PNv21[i], sigmaz_up2[i], sigmaz_down2[i], PNv22[i], sigmaz_up5[i], sigmaz_down5[i], PNv25[i], sigmaz_up7[i], sigmaz_down7[i], PNv27[i], sigmaz_up10[i], sigmaz_down10[i], PNv210[i], sigmaz_up15[i], sigmaz_down15[i], PNv215[i], sigmaz_up20[i], sigmaz_down20[i], PNv220[i], sigmaz_up30[i], sigmaz_down30[i], PNv230[i], sigmaz_up40[i], sigmaz_down40[i], PNv240[i], sigmaz_up50[i], sigmaz_down50[i], PNv250[i])
+            f = open(EBANDSDirectory + 'DSP_Co_a_' + str(int(np.round(a[i],2))) + '.dat','a')
+            f.write(str(EBANDSFilenameList[i]) + ' ' + str(a[i]) + ' ' +  str(c[i]) + ' ' + str(NF_up[i]) + ' ' + str(NF_down[i]) + ' ' +  str(PN[i]) + ' ' + str(sigmaz_up0[i]) + ' ' + str(sigmaz_down0[i]) + ' ' + str(PNv20[i]) + ' ' + str(sigmaz_up1[i]) + ' ' + str(sigmaz_down1[i]) + ' ' + str(PNv21[i]) + ' ' + str(sigmaz_up2[i]) + ' ' + str(sigmaz_down2[i]) + ' ' + str(PNv22[i]) + ' ' + str(sigmaz_up5[i]) + ' ' + str(sigmaz_down5[i]) + ' ' + str(PNv25[i]) + ' ' + str(sigmaz_up7[i]) + ' ' + str(sigmaz_down7[i]) + ' ' + str(PNv27[i]) + ' ' + str(sigmaz_up10[i]) + ' ' + str(sigmaz_down10[i]) + ' ' + str(PNv210[i]) + ' ' + str(sigmaz_up15[i]) + ' ' + str(sigmaz_down15[i]) + ' ' + str(PNv215[i]) + ' ' + str(sigmaz_up20[i]) + ' ' + str(sigmaz_down20[i]) + ' ' + str(PNv220[i]) + ' ' + str(sigmaz_up30[i]) + ' ' + str(sigmaz_down30[i]) + ' ' + str(PNv230[i]) + ' ' + str(sigmaz_up40[i]) + ' ' + str(sigmaz_down40[i]) + ' ' + str(PNv240[i]) + ' ' + str(sigmaz_up50[i]) + ' ' + str(sigmaz_down50[i]) + ' ' + str(PNv250[i]) + ' ')
+            f.close()
     
 main('qatkDatFiles/atomicMag/Co_bulk_new/',8.617e-5*100,20,15,15,101,0.1)
