@@ -11,19 +11,57 @@ import csv
 from mpi4py import MPI
 
 def fermi_deriv(E,T):
+    """
+    parameters:
+        E: electron energy relative to Fermi level
+        T: temperature (k_B = 1, so units of E)
+    returns:
+        energy derivative of the Fermi distribution function
+          in the shape of E (whether it's a float or array)
+    """
     return 1/(2.*np.cosh(E/(2.*T)))**2.
 
 def deltaGaussHerm(Ek,Ek_prime,f):
+    """
+    This function approximates a delta function as a gaussian
+    times the Hermite polynomials
+    
+    parameters:
+        Ek: energy (float)
+        Ek_prime: energy to be integrated over (array)
+        f: full-width half max of the gaussian function (float)
+    returns:
+        normalized gaussian times Hermite polynomials (array shape
+          of E_k)
+    """
     hermiteZero = 1
     hermiteTwo = 4.*(((Ek - Ek_prime)**2)/(2*f*f)) - 2.
     coeffZero = 1./np.sqrt(np.pi)
-    #coeffTwo = -1./(4.*np.sqrt(np.pi))
     coeffTwo = 0
 
     gauss = np.exp(-((Ek - Ek_prime)**2)/(2*f*f))
     return (1./(f*np.sqrt(2.)))*gauss*(coeffZero*hermiteZero + coeffTwo*hermiteTwo)
 
 def vk(interp_func,kx,ky,kz,dk = 1e-6):
+    """
+    This function numerically calculates the electron velocities for
+    a single band at a specific k-point from the interpolated E(k)
+    functions
+    
+    parameters:
+        interp_func: interpolation function of E(k) for a 
+          specific band
+        kx: array
+        ky: array
+        kz: array (all 3 are same size)
+        dk: small amount in k-space to perturb E_k by for numerical
+          derivative calculation
+    returns:
+        vx: velocity of the electron in the x-direction 
+          (array, size of kx)
+        vy: velovity of the electron in the y-direction (array)
+        vz: velocity of the electron in the z-direction (array)
+    """
     vx = np.zeros(kx.shape)
     vy = np.zeros(kx.shape)
     vz = np.zeros(kx.shape)
